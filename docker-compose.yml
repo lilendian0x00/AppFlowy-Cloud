@@ -12,9 +12,9 @@ services:
       - /etc/nginx/ssl/certificate.crt:/etc/nginx/ssl/certificate.crt
       - /etc/nginx/ssl/private_key.key:/etc/nginx/ssl/private_key.key
   
-    ports:
-      - 80:80
-      - 443:443
+        #ports:
+      #- 80:80
+      #- 443:443
         #labels:
       #- traefik.enable=true
       #- traefik.http.routers.appflowy-main-3w1k4x-1-web.rule=Host(`flowy.lilendian.dev`)
