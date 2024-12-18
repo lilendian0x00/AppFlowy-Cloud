@@ -47,6 +47,7 @@ use crate::biz::collab::utils::collab_to_bin;
 use crate::biz::collab::utils::get_latest_collab_encoded;
 
 use super::ops::broadcast_update;
+use super::ops::broadcast_update_with_timeout;
 
 #[allow(clippy::too_many_arguments)]
 pub async fn duplicate_published_collab_to_workspace(
@@ -180,7 +181,6 @@ impl PublishCollabDuplicator {
         object_id: oid.clone(),
         encoded_collab_v1: encoded_collab.into(),
         collab_type,
-        embeddings: None,
       };
       let action = format!("duplicate collab: {}", params);
       collab_storage
@@ -247,7 +247,6 @@ impl PublishCollabDuplicator {
             object_id: ws_db_oid.clone(),
             encoded_collab_v1: Bytes::from(updated_ws_w_db_collab),
             collab_type: CollabType::WorkspaceDatabase,
-            embeddings: None,
           },
           &mut txn,
           "duplicate workspace database collab",
@@ -339,7 +338,6 @@ impl PublishCollabDuplicator {
           object_id: dest_workspace_id.clone(),
           encoded_collab_v1: updated_encoded_collab.await?.into(),
           collab_type: CollabType::Folder,
-          embeddings: None,
         },
         &mut txn,
         "duplicate folder collab",
@@ -360,20 +358,12 @@ impl PublishCollabDuplicator {
     }?;
 
     // broadcast folder changes
-    match tokio::time::timeout(
-      Duration::from_secs(30),
-      broadcast_update(&collab_storage, &dest_workspace_id, encoded_update),
-    )
-    .await
-    {
-      Ok(result) => result.map_err(AppError::from),
-      Err(_) => {
-        error!("Timeout waiting for broadcasting the updates");
-        Err(AppError::RequestTimeout(
-          "timeout while duplicating".to_string(),
-        ))
-      },
-    }
+    tokio::spawn(broadcast_update_with_timeout(
+      collab_storage,
+      dest_workspace_id,
+      encoded_update,
+    ));
+    Ok(())
   }
 
   /// Deep copy a published collab to the destination workspace.
